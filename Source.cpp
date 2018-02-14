@@ -11,7 +11,7 @@ using namespace NTL;
 
 // Defining global parameters(settings) of encryption scheme:
 // bit-length of the integers in the public key
-const long bits_in_pk = 29000;
+const long bits_in_pk = 290000;
 // bit-length of the secret key
 const long bits_in_sk = 988;
 // bit-length of the noise
@@ -72,13 +72,13 @@ ZZ encrypt(ZZ m, array<ZZ, integers_in_pk> pk) {
 	vector<int> subset;
 
 	subset = generate_subset(integers_in_enc_subset, integers_in_pk);
-
-	result = subset[0];
+	
+	result = pk[subset[0]];
 	for (int i = 1; i < subset.size(); i++) {
 		result = result + pk[subset[i]];
 	}
-
-	r = RandomBits_ZZ(2 ^ bits_in_noise);
+	
+	r = RandomBits_ZZ(bits_in_noise);
 	if (rand() % 2 == 0)
 		r = r * ZZ(-1);
 	result = m + 2 * r + 2 * result;
@@ -104,22 +104,28 @@ int main()
 	int posit;
 	array<ZZ, integers_in_pk> pk;
 
+	RR::SetPrecision(bits_in_pk);
+	
 	srand(time(NULL));
 
 	// generete odd number as secret key
 	do {
 		RandomLen(sk, bits_in_sk);
-	} while (sk % 2 == 0);
+	} while ((sk % ZZ(2)) == ZZ(0));
 
+	ZZ upperBound = power2_ZZ(bits_in_pk);	
+	ZZ upperBound_divided_p = upperBound/sk;
 	// generate whole public key
 	do {
 		// x_i = sk * q_i + r_i
 		for (int i = 0; i < integers_in_pk; i++) {
+			/*
 			RandomLen(q, bits_in_pk);
-			q = q / sk;
+			q = q / sk;*/
+			RandomBnd(q, upperBound_divided_p);
 			//cout << "q = " << q << endl;
 
-			r = RandomBits_ZZ(2 ^ bits_in_noise);
+			r = RandomBits_ZZ(bits_in_noise);
 			if (rand() % 2 == 0)
 				r = r * ZZ(-1);
 			//cout << "r = " << r << endl;
@@ -136,8 +142,7 @@ int main()
 		pk[posit] = tmp;
 
 		// pk[0] musi byt parne + pk[0] % sk musi byt neparne
-	} while ((pk[0] % 2 != 0) ||
-			 ( ( pk[0] % sk ) % 2 != 1 ));
+	} while ((!IsOdd(pk[0])) || ( IsOdd(customModulus(pk[0],sk))));
 
 	array<ZZ, 80> test_vector;
 	array<ZZ, 80> test_vector_result;
@@ -165,9 +170,10 @@ int main()
 	
 	cout << endl << "Same:" << same;
 	cout << endl << "Different:" << different;
+	
 
-	string s;
-	cin >> s;
+//	string s;
+//	cin >> s;
 
 	return 0;
 
