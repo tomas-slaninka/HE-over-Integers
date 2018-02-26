@@ -97,6 +97,99 @@ ZZ decrypt(ZZ c, ZZ sk) {
 	return result;
 }
 
+const int OSIZE = 80;
+const int N1 = 42;
+const int N2 = 128;
+const int N3 = 9;
+const int N4 = 8;
+const int N3_sum = 45;
+const int SIZE = N1 + N2 + (N3_sum * N4);
+
+void permutation(std::array<int, SIZE> &values){
+    int nb, tmp;
+    for ( int i = 0; i < SIZE; i++ ) values[i] = i;
+  
+    for (int i = SIZE - 1; i > 0; i--){
+        nb = rand() & i;
+        tmp = values[i];
+        values[i] = values[nb];
+        values[nb] = tmp;
+	}
+}
+
+template<typename S>
+S linear(std::array<S, SIZE> const &state){  
+	S result = state[0];
+
+	for (int i = 1; i < N1; i++) result +=state[i];
+
+	return result;
+}
+
+template<typename S>
+S quadratic(std::array<S, SIZE> const &state){
+	S result = state[N1] * state[N1 + 1];
+	for (int i = 2; i < N2; i += 2) result += state[N1 + i] * state[N1 + i + 1];
+
+	return result;
+}
+
+template<typename S>
+S triangular(std::array<S, SIZE> const &state){
+	int it = N1 + N2;
+	S result = state[it];
+
+	for(int i = 0; i < N4; i++){
+		int multiplications = 0;
+
+		for(it = N1 + N2 + (i * N3_sum); it < N1 + N2 + ((i+1) * N3_sum); ){
+			multiplications+= 1;
+			S tmp = state[it];
+      		//cout << it << " ";
+      		it++;
+      		for(int j = 0; j < multiplications - 1; j++){
+        		tmp *= state[it];
+        		//cout << it << " ";
+        		it++;
+      		}
+      	//cout << endl;
+      	result += tmp;
+
+    	}
+  	}
+
+  	return result;
+}
+
+template<typename K, typename S, typename O>
+void Flip(std::array<K, SIZE> const &key, std::array<S, SIZE> &state, std::array<O, OSIZE> &output)
+{
+
+  	std::array<int, SIZE> pm;
+
+  	for (int i = 0; i < SIZE; i++) state[i] = key[i];
+
+  	std::array<S, SIZE> alter_state;
+  
+  	//Iterate until you have enough output
+  	for (int i = 0; i < OSIZE; i++){
+
+    	//Ask for new permutation
+    	permutation(pm);
+
+    	/*for (auto const &v : pm) {
+      		std::cout << v << " ";
+    	}
+    	cout << endl;*/
+
+    	//Copy initial state to altered state using generated permutation
+    	for (int j = 0; j < SIZE; j++) alter_state[pm[j]] = state[j];
+
+    	output[i] = linear(alter_state) + quadratic(alter_state) + triangular(alter_state);
+  }
+
+}
+
 int main()
 {
 	ZZ sk;
@@ -104,7 +197,7 @@ int main()
 	int posit;
 	array<ZZ, integers_in_pk> pk;
 
-	RR::SetPrecision(bits_in_pk);
+	RR::SetPrecision(10*bits_in_pk);
 	
 	srand(time(NULL));
 
@@ -144,10 +237,14 @@ int main()
 		// pk[0] musi byt parne + pk[0] % sk musi byt neparne
 	} while ((!IsOdd(pk[0])) || ( IsOdd(customModulus(pk[0],sk))));
 
-	array<ZZ, 80> test_vector;
+	/*array<ZZ, 80> test_vector;
 	array<ZZ, 80> test_vector_result;
 	ZZ enc_text;
 	ZZ dec_text;
+    ZZ add_one = ZZ(1);
+    ZZ add_one_enc;
+    ZZ multiply_one = ZZ(1);
+    ZZ multiply_one_enc;
 	int same = 0;
 	int different = 0;
 
@@ -157,9 +254,14 @@ int main()
 		cout << test_vector[i];
 	}
 
+	add_one_enc = encrypt(add_one, pk);
+
 	//cout << endl << "Deciphered text: " << endl;
 	for (int i = 0; i < 80; i++) {
 		enc_text = encrypt(test_vector[i], pk);
+
+        enc_text = enc_text * add_one_enc;
+
 		test_vector_result[i] = decrypt(enc_text, sk);
 		cout << test_vector_result[i];
 		if (test_vector[i] != test_vector_result[i])
@@ -169,11 +271,40 @@ int main()
 	}
 	
 	cout << endl << "Same:" << same;
-	cout << endl << "Different:" << different;
-	
+	cout << endl << "Different:" << different;*/
 
-//	string s;
-//	cin >> s;
+    array<unsigned long, SIZE> key; 
+    generate(key.begin(), key.end(), [] { return rand() & 1; });
+
+
+    std::array<unsigned long, SIZE> state;
+    std::array<unsigned long, OSIZE> output;
+  
+    srand(0);
+    Flip(key, state, output);
+
+    for (auto const &v : output) {
+        std::cout << v % 2;
+    }
+    cout << endl;
+ 
+    std::array<ZZ, SIZE> h_key;
+    ZZ temp_key_element;
+    for (size_t i = 0; i < SIZE; i++) {
+        temp_key_element = ZZ(key[i]);
+        h_key[i] = encrypt(temp_key_element, pk);
+    }
+
+    std::array<ZZ, SIZE> h_state;
+
+    std::array<ZZ, OSIZE> h_output;
+
+    srand(0);
+    Flip(h_key, h_state, h_output);
+
+    for (int i = 0; i < OSIZE; i++){
+        cout << decrypt(h_output[i], sk);
+    }
 
 	return 0;
 
