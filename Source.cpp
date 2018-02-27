@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <algorithm>
+#include <chrono>
 
 using namespace std;
 using namespace NTL;
@@ -196,6 +197,10 @@ int main()
 	ZZ q, r;
 	int posit;
 	array<ZZ, integers_in_pk> pk;
+    // Timer
+    auto start = std::chrono::steady_clock::now();
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> elapsed_seconds;
 
 	RR::SetPrecision(10*bits_in_pk);
 	
@@ -281,7 +286,14 @@ int main()
     std::array<unsigned long, OSIZE> output;
   
     srand(0);
+    start = std::chrono::steady_clock::now();
     Flip(key, state, output);
+    end = std::chrono::steady_clock::now();
+
+    elapsed_seconds = end - start;
+    cout << "\tBinary Flip: \t\t\t"
+            << elapsed_seconds.count() << " us"
+            << std::endl;
 
     for (auto const &v : output) {
         std::cout << v % 2;
@@ -296,11 +308,17 @@ int main()
     }
 
     std::array<ZZ, SIZE> h_state;
-
     std::array<ZZ, OSIZE> h_output;
 
     srand(0);
+    start = std::chrono::steady_clock::now();
     Flip(h_key, h_state, h_output);
+    end = std::chrono::steady_clock::now();
+
+    elapsed_seconds = end - start;
+    cout << "\tHomomorphic Flip: \t\t"
+            << elapsed_seconds.count()  << " s"
+            << std::endl;
 
     for (int i = 0; i < OSIZE; i++){
         cout << decrypt(h_output[i], sk);
